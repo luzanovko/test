@@ -1,3 +1,4 @@
+#https://www.youtube.com/watch?v=0qtLrRm36J0&ab_channel=egoroff_channel
 n = 1
 a = []
 while n > 0:
