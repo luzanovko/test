@@ -1,0 +1,78 @@
+---
+
+- hosts: vpn
+  become: yes
+  gather_facts: no
+  vars:
+    sysctl_config:
+      net.ipv4.ip_forward: 1
+      net/ipv4/conf/all/accept_redirects: 0
+      net/ipv4/conf/all/send_redirects: 0
+      net/ipv4/ip_no_pmtu_disc: 1
+  tasks:
+    - name: Update all apt packages
+      apt: update_cache=yes force_apt_get=yes cache_valid_time=3600
+
+    - name: Install Strongswan
+      apt: name=strongswan state=latest update-cache=true
+
+    - name: Install Strongswan-pki
+      apt: name=strongswan-pki state=latest update-cache=true
+
+    - name: Install Libcharon-extra-plugins
+      apt: name=libcharon-extra-plugins state=latest update-cache=true
+
+    - name: Install Libcharon-extauth-plugins
+      apt: name=libcharon-extauth-plugins state=latest update-cache=true
+
+    - name: Copy file ca-cert
+      copy: src=./files/ca-cert.pem dest=/etc/ipsec.d/cacerts/ca-cert.pem
+
+    - name: Copy file server-cert
+      copy: src=./files/server-cert.pem dest=/etc/ipsec.d/certs/server-cert.pem
+
+    - name: Copy file ca-key
+      copy: src=./files/ca-key.pem dest=/etc/ipsec.d/private//ca-key.pem
+
+    - name: Copy file server-key
+      copy: src=./files/server-key.pem dest=/etc/ipsec.d/private/server-key.pem
+ 
+    - name: Move ipsec.conf.originak
+      command: mv /etc/ipsec.conf  /etc/ipsec.conf.original
+
+    - name: Copy file ipsec.conf
+      copy: src=./files/ipsec.conf dest=/etc/ipsec.conf
+
+    - name: Copy file ipsec.secrets
+      copy: src=./files/ipsec.secrets dest=/etc/ipsec.secrets
+
+    - name: restart strongswan-starter
+      systemd: name=strongswan-starter state=restarted
+
+    - name: Allow OpenSSH
+      ufw: rule=allow name=OpenSSH
+
+    - name: Enable ufw
+      ufw: state=enabled
+
+    - name: Allow 500/UDP
+      ufw: rule=allow port=500 proto=udp
+
+    - name: Allow 4500/UDP
+      ufw: rule=allow port=4500 proto=udp
+
+    - name: Enable ufw
+      ufw: state=reloaded
+
+    - name: Copy file before.rules
+      copy: src=./files/before.rules dest=/etc/ufw/before.rules
+
+    - name: Change various sysctl-settings
+      sysctl:
+        name: '{{ item.key }}'
+        value: '{{ item.value }}'
+        sysctl_set: yes
+        state: present
+        reload: yes
+        ignoreerrors: yes
+      with_dict: '{{ sysctl_config }}'
